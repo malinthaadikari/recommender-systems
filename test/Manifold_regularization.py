@@ -1,9 +1,41 @@
 #!/usr/bin/python
 
+from __future__ import division
 import numpy as np
+
 number_of_users = 943
 number_of_movies = 1682
-expected_number_of_recommendations = 10
+selected_recommendations = 10
+
+def evaluate(weight):
+    predicted = user_ratings * weight
+    predicted = np.matrix.round(predicted)
+
+ # Selecting top-N recommendations list
+ # N=10
+    import bottleneck as bottleneck
+    top_N_ratings = np.zeros(shape=(number_of_users, selected_recommendations))
+    temp = np.squeeze(np.asarray(predicted))
+    for (b,m), value in np.ndenumerate(temp):
+        top_N_ratings[b] = np.array(bottleneck.argpartsort(-temp[b], selected_recommendations)[:selected_recommendations])
+
+# Calculating HR
+
+    test_ratings = {k: g['movie_id'].tolist() for k,g in ratings_test.groupby('user_id')}
+    user_count= len(test_ratings)
+    hit_count=0
+
+    for key, value in test_ratings.iteritems():
+        found = False
+        for movie in value:
+            if found:
+                break
+            if movie - 1 in top_N_ratings[key-1]:
+                hit_count = hit_count + 1
+                found = True
+
+    print(hit_count/user_count)
+
 
 def LapLRSFunc(X):
 
@@ -17,7 +49,7 @@ def LapLRSFunc(X):
     beta = 10
     lam = 0.1
     mu = 50
-    gamma = 1.5
+    gamma = 0.1
 
     # Initialization random value(0..1) item_count*item_count matrices
     z1 = np.random.rand(item_count, item_count)
@@ -34,22 +66,19 @@ def LapLRSFunc(X):
     tempy = (temp1 + tempx).I
     np.savetxt("/home/malintha/datasets/ml-100k/adikari1.txt", temp1, delimiter=",")
 
-    while count < 10:
+    while count < 15:
 
         # Obtaining W
-        print("Obtaining W...")
         temp2 = temp1 + z1 + z2 + z3 + z4 + (y1 + y2 + y3 + y4) / mu
         W = tempy * temp2
 
         # Updating z1
         # Creating empty matrix n*n representing zero in element-wise operation
-        print("Updating Z1...")
         temp3 = np.maximum(np.abs(W -y1/mu) - alpha / mu, np.zeros(W.shape))
         temp4 = np.sign(W-y1/mu)
         z1 = np.multiply(temp3, temp4)
 
         # Updating z2
-        print("Updating Z2...")
         SVD = W - y2 / mu
         # calculating SVD using python Linear Algebra lib
         P, D, Q = np.linalg.svd(SVD, full_matrices=True)
@@ -57,7 +86,6 @@ def LapLRSFunc(X):
         z2 = np.dot(np.dot(P,temp5), Q)
 
         # Updating z3
-        print("Updating Z3...")
         S = np.zeros(shape=(item_count,item_count))
         for iterator1 in range(0,item_count):
             x_i = X[:, iterator1]
@@ -70,12 +98,10 @@ def LapLRSFunc(X):
                     S[iterator1, iterator2] = np.dot(np.array(x_i).flatten(), np.array(x_j).flatten())/np.linalg.norm(x_i)*np.linalg.norm(x_j)
 
         # L = D - S
-        print("Calculating L")
         L = np.diag(np.diag(S)) - S
         z3 = np.multiply(W - y3 / mu, np.matrix(lam / mu * L + identity_matrix).I)
 
         # Updating z4
-        print("Updating Z4...")
         z4 = np.maximum(W - y4 / mu, 0)
 
         # Updating Lagrangian multipliers
@@ -87,10 +113,8 @@ def LapLRSFunc(X):
         # Updating penalty parameter mu
         mu = gamma * mu
 
-        print(W)
-        print(count)
-
         count += 1
+        evaluate(W)
 
     return W
 
@@ -106,54 +130,22 @@ user_ratings = [[0] * number_of_movies for _ in range(number_of_users)]
 ###########################################################
 # Data loading
 r_cols = ['user_id', 'movie_id', 'rating', 'unix_timestamp']
-ratings = pand.read_csv('resources/data/ml-100k/u.data', sep='\t', names=r_cols,
- encoding='latin-1')
 
-ratings_base = pand.read_csv('resources/data/ml-100k/u2.base', sep='\t', names=r_cols, encoding='latin-1')
-ratings_test = pand.read_csv('resources/data/ml-100k/u2.test', sep='\t', names=r_cols, encoding='latin-1')
+
+current_file_no = 4
+while current_file_no <= 4:
+    print("******************** Results for file no" + str(current_file_no) +" *************************")
+    ratings_base = pand.read_csv('resources/data/ml-100k/u'+str(current_file_no)+'.base', sep='\t', names=r_cols, encoding='latin-1')
+    ratings_test = pand.read_csv('resources/data/ml-100k/u'+str(current_file_no)+'.test', sep='\t', names=r_cols, encoding='latin-1')
 
 ###########################################################
 
-ratings_base.__delitem__('unix_timestamp')
-ratings.__delitem__('unix_timestamp')
-ratings_test.__delitem__('unix_timestamp')
-ratings_test.__delitem__('rating')
+    ratings_base.__delitem__('unix_timestamp')
+    ratings_test.__delitem__('unix_timestamp')
+    ratings_test.__delitem__('rating')
 
-for index, row in ratings.iterrows():
-    user_ratings[row[0]-1][row[1]-1] = row[2]
-y= np.asmatrix(user_ratings)
+    for index, row in ratings_base.iterrows():
+        user_ratings[row[0]-1][row[1]-1] = row[2]
 
-
-weight_matrix = LapLRSFunc(y)
-
-predicted = user_ratings * weight_matrix
-np.savetxt("/home/malintha/datasets/ml-100k/prediction.txt", predicted, delimiter=",")
-predicted = np.matrix.round(predicted)
-
-#
- # Selecting top-N recommendations list
- # N=10
-import bottleneck as bottleneck
-top_N_ratings = np.zeros(shape=(number_of_users,expected_number_of_recommendations))
-temp = np.squeeze(np.asarray(predicted))
-for (b,m), value in np.ndenumerate(temp):
-    top_N_ratings[b] = np.array(bottleneck.argpartsort(-temp[b], expected_number_of_recommendations)[:expected_number_of_recommendations])
-#
-# Calculating
-
-test_ratings = {k: g['movie_id'].tolist() for k,g in ratings_test.groupby('user_id')}
-
-user_count= len(test_ratings)
-hit_count=0
-for key,myval in test_ratings.items():
-    for movie in myval:
-        if movie in top_N_ratings[key]:
-            hit_count = hit_count +1
-            break
-    else:
-        continue
-    break
-
-print(hit_count/user_count)
-
-
+    weight_matrix = LapLRSFunc(np.asmatrix(user_ratings))
+    current_file_no = current_file_no +1
