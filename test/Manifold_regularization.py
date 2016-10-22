@@ -1,7 +1,7 @@
 #!/usr/bin/python
-
 from __future__ import division
-import numpy as np
+import pandas as pand
+from pandas import *
 
 number_of_users = 943
 number_of_movies = 1682
@@ -11,34 +11,34 @@ def evaluate(weight):
     predicted = user_ratings * weight
     predicted = np.matrix.round(predicted)
 
- # Selecting top-N recommendations list
- # N=10
+    # Selecting top-N recommendations list
+    # N=10
     import bottleneck as bottleneck
     top_N_ratings = np.zeros(shape=(number_of_users, selected_recommendations))
     temp = np.squeeze(np.asarray(predicted))
-    for (b,m), value in np.ndenumerate(temp):
-        top_N_ratings[b] = np.array(bottleneck.argpartsort(-temp[b], selected_recommendations)[:selected_recommendations])
+    for (b, m), value in np.ndenumerate(temp):
+        top_N_ratings[b] = np.array(
+            bottleneck.argpartsort(-temp[b], selected_recommendations)[:selected_recommendations])
 
-# Calculating HR
+    # Calculating HR
 
-    test_ratings = {k: g['movie_id'].tolist() for k,g in ratings_test.groupby('user_id')}
-    user_count= len(test_ratings)
-    hit_count=0
+    test_ratings = {k: g['movie_id'].tolist() for k, g in ratings_test.groupby('user_id')}
+    user_count = len(test_ratings)
+    hit_count = 0
 
     for key, value in test_ratings.iteritems():
         found = False
         for movie in value:
             if found:
                 break
-            if movie - 1 in top_N_ratings[key-1]:
+            if movie - 1 in top_N_ratings[key - 1]:
                 hit_count = hit_count + 1
                 found = True
 
-    print(hit_count/user_count)
+    print(hit_count / user_count)
 
 
 def LapLRSFunc(X):
-
     item_count = X.shape[1]
 
     # creating Identity matrix
@@ -74,8 +74,8 @@ def LapLRSFunc(X):
 
         # Updating z1
         # Creating empty matrix n*n representing zero in element-wise operation
-        temp3 = np.maximum(np.abs(W -y1/mu) - alpha / mu, np.zeros(W.shape))
-        temp4 = np.sign(W-y1/mu)
+        temp3 = np.maximum(np.abs(W - y1 / mu) - alpha / mu, np.zeros(W.shape))
+        temp4 = np.sign(W - y1 / mu)
         z1 = np.multiply(temp3, temp4)
 
         # Updating z2
@@ -83,19 +83,20 @@ def LapLRSFunc(X):
         # calculating SVD using python Linear Algebra lib
         P, D, Q = np.linalg.svd(SVD, full_matrices=True)
         temp5 = np.maximum(np.diag(D) - beta / mu, 0)
-        z2 = np.dot(np.dot(P,temp5), Q)
+        z2 = np.dot(np.dot(P, temp5), Q)
 
         # Updating z3
-        S = np.zeros(shape=(item_count,item_count))
-        for iterator1 in range(0,item_count):
+        S = np.zeros(shape=(item_count, item_count))
+        for iterator1 in range(0, item_count):
             x_i = X[:, iterator1]
-            for iterator2 in range(0,item_count):
+            for iterator2 in range(0, item_count):
                 x_j = X[:, iterator2]
                 # Sij = (xi.xj)/(||xi||2*||xj||2)
-                if np.linalg.norm(x_i)*np.linalg.norm(x_j) == 0:
+                if np.linalg.norm(x_i) * np.linalg.norm(x_j) == 0:
                     S[iterator1, iterator2] = 0
                 else:
-                    S[iterator1, iterator2] = np.dot(np.array(x_i).flatten(), np.array(x_j).flatten())/np.linalg.norm(x_i)*np.linalg.norm(x_j)
+                    S[iterator1, iterator2] = np.dot(np.array(x_i).flatten(), np.array(x_j).flatten()) / np.linalg.norm(
+                        x_i) * np.linalg.norm(x_j)
 
         # L = D - S
         L = np.diag(np.diag(S)) - S
@@ -111,7 +112,7 @@ def LapLRSFunc(X):
         y4 += mu * (z4 - W)
 
         # Updating penalty parameter mu
-        mu = gamma * mu
+        mu *= gamma
 
         count += 1
         evaluate(W)
@@ -122,9 +123,6 @@ def LapLRSFunc(X):
 # Testing
 y = np.matrix([[0 for i in range(number_of_movies)] for j in range(number_of_users)])
 
-import pandas as pand
-from pandas import *
-
 user_ratings = [[0] * number_of_movies for _ in range(number_of_users)]
 
 ###########################################################
@@ -132,20 +130,20 @@ user_ratings = [[0] * number_of_movies for _ in range(number_of_users)]
 r_cols = ['user_id', 'movie_id', 'rating', 'unix_timestamp']
 
 
-current_file_no = 4
-while current_file_no <= 4:
-    print("******************** Results for file no" + str(current_file_no) +" *************************")
-    ratings_base = pand.read_csv('resources/data/ml-100k/u'+str(current_file_no)+'.base', sep='\t', names=r_cols, encoding='latin-1')
-    ratings_test = pand.read_csv('resources/data/ml-100k/u'+str(current_file_no)+'.test', sep='\t', names=r_cols, encoding='latin-1')
+ratings_base = pand.read_csv('resources/data/ml-100k/u.data', sep='\t', names=r_cols,
+                                 encoding='latin-1')
 
-###########################################################
+ratings_base.__delitem__('unix_timestamp')
 
-    ratings_base.__delitem__('unix_timestamp')
-    ratings_test.__delitem__('unix_timestamp')
-    ratings_test.__delitem__('rating')
+ratings_test = DataFrame(columns=['user_id', 'movie_id', 'rating'])
+user_count = 0
+while user_count < number_of_users:
+    selection = ((ratings_base.loc[ratings_base['user_id'] == user_count + 1]).sort_values(by='rating', ascending=0)).iloc[0]
+    ratings_test.loc[user_count] = selection
+    ratings_base.drop(selection.name, inplace=True)
+    user_count += 1
 
-    for index, row in ratings_base.iterrows():
-        user_ratings[row[0]-1][row[1]-1] = row[2]
+for index, row in ratings_base.iterrows():
+    user_ratings[row[0] - 1][row[1] - 1] = row[2]
 
-    weight_matrix = LapLRSFunc(np.asmatrix(user_ratings))
-    current_file_no = current_file_no +1
+weight_matrix = LapLRSFunc(np.asmatrix(user_ratings))
