@@ -1,8 +1,7 @@
 import numpy as np
-from Manifold_regularization import evaluate
 
 
-def LapLRSFunc(X,ratings_test):
+def LapLRSFunc(X):
 
     item_count = X.shape[1]
 
@@ -30,7 +29,8 @@ def LapLRSFunc(X,ratings_test):
     tempx = 4 * identity_matrix
     tempy = (temp1 + tempx).I
 
-    while count < 15:
+    # Here we create the stopping criteria, fixed number iterations
+    while count < 13:
 
         # Obtaining W
         temp2 = temp1 + z1 + z2 + z3 + z4 + (y1 + y2 + y3 + y4) / mu
@@ -79,6 +79,5 @@ def LapLRSFunc(X,ratings_test):
         mu *= gamma
 
         count += 1
-        evaluate(W, X, ratings_test)
 
     return W
