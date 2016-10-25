@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from __future__ import division
 from pandas import *
+import math
 
 number_of_users = 943
 number_of_movies = 1682
@@ -15,7 +16,15 @@ def evaluate(weight, user_item_ratings, ratings_test):
     # N=10
     top_n_ratings = np.zeros(shape=(number_of_users, selected_recommendations))
     temp = np.squeeze(np.asarray(predicted))
+
+    # Removing already rated movied from the predicted set
+    # Actually giving them minus infinity rating value, so that those would not be selected to top-N
+
     for (b, m), value in np.ndenumerate(temp):
+        user_rated_list = np.where(np.array(user_item_ratings[b]) != 0)[0]
+        for i in user_rated_list:
+            temp[b][i] = float("-inf")
+        # then select top-N predicted ratings
         top_n_ratings[b] = np.argsort(temp[b])[-selected_recommendations:][::-1]
 
     # Calculating HR and ARHR
