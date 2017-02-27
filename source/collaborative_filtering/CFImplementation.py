@@ -10,6 +10,7 @@ def data_preprocess(data_file):
     # removing timestamp column as it is not needed in this stage
     user_ratings.__delitem__('timestamp')
     # here we aggregate using a similar function like groupby
-    user_ratings_matrix = user_ratings.pivot_table(index='user_id', columns='movie_id', values='rating', fill_value=0, aggfunc=np.mean)
+    user_ratings_matrix = user_ratings.pivot_table(index='user_id', columns='movie_id', values='rating', fill_value=0,
+                                                   aggfunc=np.mean)
     # now we have user-movie ratings matrix
     return user_ratings_matrix
